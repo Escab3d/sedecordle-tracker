@@ -13,11 +13,24 @@ self.addEventListener("activate", (e) => {
     .then(() => self.clients.claim()));
 });
 
-// App files: cache first (they're versioned by the cache name), network as fallback.
-// capture.js is always fetched fresh so the bookmarklet gets the latest version.
+// Network first, cache as the offline fallback. (Cache-first would mix old cached scripts with
+// newly added pages right after an update.) capture.js is left to the network entirely.
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   if (url.pathname.endsWith("/capture.js")) return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || fetch(e.request)));
+  e.respondWith((async () => {
+    try {
+      const res = await fetch(e.request, { cache: "no-cache" });
+      if (res.ok) {
+        const c = await caches.open(CACHE);
+        c.put(e.request, res.clone()).catch(() => {});
+      }
+      return res;
+    } catch (err) {
+      const hit = await caches.match(e.request, { ignoreSearch: true });
+      if (hit) return hit;
+      throw err;
+    }
+  })());
 });
