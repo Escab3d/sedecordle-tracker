@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Sync</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+    .card h2 { margin: 0 0 6px; }
+    ol { padding-left: 22px; margin: 8px 0; } li { margin: 6px 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+    input[type=password] { flex: 1 1 260px; font: 13px ui-monospace, Consolas, monospace; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+    .status { font-size: 15px; }
+    .status .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--grey); }
+    .status.ok .dot { background: var(--green); }
+    .status.err .dot { background: var(--status-critical); }
+    .err-text { color: var(--warn); }
+    code { font: 13px ui-monospace, Consolas, monospace; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="sync.html" aria-current="page">Sync</a><a href="setup.html" class="web-only">Setup</a></nav>
+  </header>
+  <main class="wrap">
+    <section class="card">
+      <h2>Sync status</h2>
+      <div id="status" class="status"><span class="dot"></span>Loading…</div>
+      <div id="details" class="muted" style="margin-top:6px"></div>
+      <div class="row" id="connected-actions" hidden>
+        <button id="sync-now" class="primary">Sync now</button>
+        <button id="disconnect">Disconnect this device</button>
+      </div>
+    </section>
+
+    <section class="card" id="setup-card">
+      <h2 id="setup-title">Set up sync</h2>
+      <p>Games sync through one <b>secret gist</b> in your GitHub account. Every device you connect (the desktop extension, the phone web app) reads and writes it automatically.</p>
+      <ol>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → new fine-grained token</a>.</li>
+        <li>Name it, for example, <code>Sedecordle Tracker – phone</code>, and pick an expiration.</li>
+        <li><b>Repository access:</b> choose <i>Public repositories</i>. The tracker needs no repository access.</li>
+        <li><b>Permissions → Account permissions → Gists:</b> set to <i>Read and write</i>. Nothing else.</li>
+        <li>Generate the token, copy it, and paste it below.</li>
+      </ol>
+      <div class="row">
+        <input type="password" id="token" placeholder="github_pat_…" autocomplete="off" spellcheck="false" aria-label="GitHub token">
+        <button id="save" class="primary">Save &amp; sync</button>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:10px">
+        The token is stored only in this browser on this device, and it can only read and write your gists.
+        Use a separate token per device, so you can revoke one at <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a> without affecting the others.
+        <span class="web-only">Note: the web app shares its storage with any other site you publish under the same <code>*.github.io</code> address.</span>
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>How it works</h2>
+      <ul>
+        <li><b>When it syncs:</b> automatically when you open the tracker, after saving a game from the bookmarklet, and (in the extension) when a game finishes. You can also tap <b>Sync now</b>.</li>
+        <li><b>Merging:</b> game by game. Timings recorded on any device are kept, and a game you continued elsewhere is extended rather than duplicated.</li>
+        <li><b>Deleting</b> a game deletes it on every synced device.</li>
+        <li><b>The gist:</b> secret gists are unlisted, but anyone with the gist's exact address could read your game data. It holds only your games, never the token.</li>
+      </ul>
+    </section>
+  </main>
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="../lib/sync.js"></script>
+  <script src="sync-page.js"></script>
+</body>
+</html>

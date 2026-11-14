@@ -5,6 +5,8 @@
 
   const PREFIX = "game:";
   const ANALYSIS = "analysis:"; // cached engine results, derived data (safe to delete)
+  const DELETED = "deleted:";   // tombstones {id, deletedAt} so deletions sync
+  const META = "meta:";         // settings (sync)
 
   // Extension storage when running inside the extension, otherwise IndexedDB (the web app).
   let webArea = null;
@@ -83,12 +85,40 @@
         for (const r of recs) obj[PREFIX + r.id] = r;
         await area.set(obj);
       },
-      async remove(id) {
+      // Deleting leaves a tombstone so sync can delete the game on other devices too.
+      async remove(id, { tombstone = true } = {}) {
+        if (tombstone) await area.set({ [DELETED + id]: { id, deletedAt: Date.now() } });
         await area.remove([PREFIX + id, ANALYSIS + id]);
       },
-      async clear() {
+      async clear({ tombstone = true } = {}) {
         const all = await area.get(null);
+        const ids = Object.keys(all).filter((k) => k.startsWith(PREFIX)).map((k) => k.slice(PREFIX.length));
+        if (tombstone && ids.length) {
+          const now = Date.now(), obj = {};
+          for (const id of ids) obj[DELETED + id] = { id, deletedAt: now };
+          await area.set(obj);
+        }
         await area.remove(Object.keys(all).filter((k) => k.startsWith(PREFIX) || k.startsWith(ANALYSIS)));
+      },
+      async getTombstones() {
+        const all = await area.get(null), out = {};
+        for (const k of Object.keys(all)) if (k.startsWith(DELETED)) out[all[k].id] = all[k].deletedAt;
+        return out;
+      },
+      async putTombstones(map) {
+        const obj = {};
+        for (const id in map) obj[DELETED + id] = { id, deletedAt: map[id] };
+        if (Object.keys(obj).length) await area.set(obj);
+      },
+      // Small settings values (e.g. sync settings), kept beside the games.
+      async getMeta(key) {
+        const k = META + key;
+        const r = await area.get(k);
+        return r[k] === undefined ? null : r[k];
+      },
+      async setMeta(key, value) {
+        if (value === null) await area.remove(META + key);
+        else await area.set({ [META + key]: value });
       },
       async getAnalysis(id) {
         const k = ANALYSIS + id;
@@ -120,5 +150,5 @@
     };
   }
 
-  g.SedecStore = { PREFIX, ANALYSIS, makeStore, memoryArea, idbArea, isExtension };
+  g.SedecStore = { PREFIX, ANALYSIS, DELETED, META, makeStore, memoryArea, idbArea, isExtension };
 })(globalThis);

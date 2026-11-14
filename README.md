@@ -15,7 +15,22 @@ The same dashboard, game log, replay and grading pages also run as an installabl
 - **Timing:** running the bookmarklet before your first guess turns on per-guess timing for that tab. Times are kept in the site's localStorage under `sedecordle-tracker-times`, so they survive until you save, but timing itself stops if the page reloads.
 - **Repeat saves:** saving the same game again merges guess by guess (`lib/ingest.js`), so timings from earlier saves are never lost.
 - **Two bookmark versions:** **Standard** loads the latest `capture.js` from the app each time. **Self-contained** embeds the whole script, in case loading scripts on sedecordle.com is ever blocked.
-- **Moving games between devices:** for now, use **Export JSON** and **Import JSON** in the game log (the import format is the same in the extension and the web app).
+- **Moving games between devices:** set up **Sync** (below), or use **Export JSON** and **Import JSON** in the game log (the format is the same in the extension and the web app).
+
+## Sync between devices (GitHub Gist)
+
+The extension and the web app sync through one **secret gist** in your GitHub account (`lib/sync.js`).
+
+- **Setup, once per device:** on the **Sync** page, paste a fine-grained GitHub token that has only *Account permissions → Gists: Read and write* (repository access: public repositories). The token stays in that browser's storage; it is never exported or written to the gist.
+- **When it syncs:**
+  - when a tracker page or the popup opens (at most every 2 minutes);
+  - right after a bookmarklet save;
+  - in the extension, as soon as a game finishes;
+  - whenever you press **Sync now**.
+- **Gist layout:** `sedecordle-tracker.json` (a marker used to find the gist), `games-YYYY-MM.json` (one file per month of the game's date) and `deleted.json` (tombstones).
+- **Merging:** game by game. A guess list that extends the other copy wins; timings are kept from either side; for genuinely conflicting copies the newer edit wins. Records are written in a fixed field order, so syncing with nothing new writes nothing.
+- **Deleting** a game (or **Delete all**) leaves a tombstone, so it is deleted on every device. A game updated after its deletion comes back.
+- **Privacy:** secret gists are unlisted, not private. Anyone with the gist's address could read the game data in it. Use a separate token per device so each can be revoked on its own.
 
 Build and host:
 
@@ -102,6 +117,9 @@ extension/
   pages/engine-worker.js  runs the engine in a Web Worker
   pages/engine-client.js  page side: worker, job queue, analysis cache
   lib/ingest.js         merges bookmarklet captures into the store (keeps timings)
+  lib/sync.js           GitHub Gist sync: merge rules, sharding, tombstones
+  pages/sync.*          sync settings page (both extension and web app)
+  pages/autosync.js     background sync when a page opens
   pages/add.*           web app: receives a captured game
   pages/setup.*         web app: bookmarklet setup instructions
   pages/env.js          marks pages as extension or web app (shows the right links)
@@ -136,6 +154,8 @@ Then open http://127.0.0.1:8765/tests/test.html. It checks:
 - the stats calculations;
 - the possibility counts used by the replay, checked against an independent brute-force count;
 - bookmarklet capture decoding and merging.
+
+http://127.0.0.1:8765/tests/sync-test.html checks sync between two simulated devices through an in-memory GitHub (`tests/fake-github.js`): the first sync, no-op syncs, timing merges, deletions, conflicts, errors, and recreating a deleted gist. For a Sync page preview that talks to the fake GitHub, open `preview.html?page=pages/sync.html&fakegh=1` and use the token `test-token`.
 
 http://127.0.0.1:8765/tests/engine-test.html checks the engine: pattern codes, information against brute force, the best opener being SOARE/ROATE/RAISE, the grading rules, speed, and the bot's strength over 25 random games. It takes about 15 s.
 

@@ -71,4 +71,5 @@ Exact optimal play is intractable for 16 boards. Instead, build a WordleBot-styl
    - Decided (2026-11-11): Android Chrome via **bookmarklet + web app (PWA)** instead of switching browsers.
    - 6a ✅ Web app build (`tools/build_webapp.py` → `webapp/`), bookmarklet capture (`web/capture.js`), save and setup pages. Tested locally and against the live site.
    - 6b ⏳ Hosted on GitHub Pages at https://escab3d.github.io/sedecordle-tracker/ (repository: github.com/Escab3d/sedecordle-tracker, deployed by GitHub Actions). Still to do: test the bookmarklet on the real phone.
-   - 6c ⏳ Sync between phone and desktop (Supabase or similar), replacing manual JSON export/import.
+   - 6b ✅ Bookmarklet confirmed working on the phone (Android Chrome).
+   - 6c ✅ Sync through a secret GitHub gist (decided 2026-11-14 over Supabase: no new account; a fine-grained token with only gist access, pasted once per device). Tested against a simulated GitHub; still to be tried with a real token.

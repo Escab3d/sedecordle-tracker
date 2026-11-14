@@ -39,4 +39,14 @@
   const daily = games.filter((r) => r.mode === "daily").length;
   document.getElementById("counts").textContent =
     `${games.length} games recorded (${daily} daily, ${games.length - daily} free).`;
+
+  // Sync status line (links to the Sync page); refresh if a background sync brings games.
+  const syncLine = document.getElementById("sync-line");
+  const s = await SedecSync.getSettings(SedecStore.makeStore(window.__sedecTestArea));
+  const link = document.createElement("a");
+  link.href = "#";
+  link.textContent = !s.token ? "Set up sync" : s.lastError ? "Sync problem: open settings" : "Sync settings";
+  link.onclick = (e) => { e.preventDefault(); openPage("pages/sync.html")(); };
+  syncLine.replaceChildren(!s.token ? "Not syncing. " : s.lastSync ? `Synced ${new Date(s.lastSync).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. ` : "", link);
+  window.addEventListener("sedec-data-changed", () => location.reload());
 })();

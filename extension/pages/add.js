@@ -26,6 +26,8 @@
   try {
     const { games, rejected } = SedecIngest.decodePayload(hash);
     const results = await SedecIngest.ingest(store, games);
+    // Push the new game to the other devices right away (no-op if sync isn't set up).
+    if (window.SedecAutoSync) window.SedecAutoSync({ force: true });
     out.replaceChildren();
     out.className = "";
     if (!results.length) out.append(el("p", "", "The link had no games in it."));

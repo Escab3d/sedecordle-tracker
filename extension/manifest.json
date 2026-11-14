@@ -17,7 +17,7 @@
     },
     {
       "matches": ["https://sedecordle.com/*", "https://www.sedecordle.com/*"],
-      "js": ["lib/words.js", "lib/sedecordle.js", "lib/store.js", "lib/recorder.js", "content/bridge.js"],
+      "js": ["lib/words.js", "lib/sedecordle.js", "lib/store.js", "lib/recorder.js", "lib/sync.js", "content/bridge.js"],
       "run_at": "document_start"
     }
   ],

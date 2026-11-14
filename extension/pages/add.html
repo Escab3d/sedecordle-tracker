@@ -13,10 +13,10 @@
     .error { color: var(--warn); }
   </style>
 </head>
-<body>
+<body data-autosync="manual">
   <header class="topbar">
     <h1>Sedecordle Tracker</h1>
-    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="setup.html" class="web-only">Setup</a></nav>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="sync.html">Sync</a><a href="setup.html" class="web-only">Setup</a></nav>
   </header>
   <main class="wrap">
     <div id="out" class="muted">Saving…</div>
@@ -26,6 +26,8 @@
   <script src="../lib/store.js"></script>
   <script src="env.js"></script>
   <script src="../lib/ingest.js"></script>
+  <script src="../lib/sync.js"></script>
+  <script src="autosync.js"></script>
   <script src="add.js"></script>
 </body>
 </html>

@@ -20,6 +20,12 @@
 <script>
   (async function () {
     if (!window.__sedecTestArea) await loadScript("sample-data.js");
+    // &fakegh=1: talk to an in-memory GitHub that accepts the token "test-token".
+    if (params.get("fakegh")) {
+      await loadScript("fake-github.js");
+      window.__fakeGh = fakeGitHub({ token: "test-token" });
+      window.__sedecTestFetch = window.__fakeGh.fetch;
+    }
     const base = new URL("../extension/" + page, location.href);
     const html = await (await fetch(base)).text();
     const doc = new DOMParser().parseFromString(html, "text/html");

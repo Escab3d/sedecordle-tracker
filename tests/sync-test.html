@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sync tests</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 20px; background: #fff; color: #111; }
+  .pass { color: #1a7f37; } .fail { color: #b3261e; font-weight: 600; }
+</style>
+<script src="../extension/lib/words.js"></script>
+<script src="../extension/lib/sedecordle.js"></script>
+<script src="../extension/lib/store.js"></script>
+<script src="../extension/lib/sync.js"></script>
+<script src="fake-github.js"></script>
+</head>
+<body>
+<h1>Sync tests (simulated GitHub, two devices)</h1>
+<div id="out">running…</div>
+<script>
+(async function () {
+  const results = [];
+  const ok = (name, cond, extra) => results.push({ name, pass: !!cond, extra });
+  const S = Sedec, Y = SedecSync;
+
+  const fakeGitHub = window.fakeGitHub;
+
+  function game(mode, seed, extra, nAns, opts = {}) {
+    const ans = S.answersForSeed(seed);
+    const words = extra.concat(ans.slice(0, nAns));
+    const r = S.newRecord(mode, seed, { startedAt: opts.startedAt ?? 1000 });
+    r.guesses = words.map((w, i) => ({ word: w, t: opts.untimed ? null : 1000 + (i + 1) * 5000 }));
+    const d = S.derive(r);
+    r.status = opts.status || d.outcome;
+    r.finishedAt = r.status === "won" || r.status === "lost" ? r.guesses[r.guesses.length - 1].t : null;
+    r.updatedAt = opts.updatedAt ?? 10;
+    return r;
+  }
+  async function device(token = "good") {
+    const store = SedecStore.makeStore(SedecStore.memoryArea());
+    await SedecSync.setToken(store, token);
+    return store;
+  }
+  const ids = async (st) => (await st.getAll()).map((r) => r.id).sort().join(",");
+
+  const gh = fakeGitHub({ truncateOver: 1000 }); // small, so the truncated-file path is exercised
+  const A = await device(), B = await device();
+  await A.putMany([game("daily", 2450, ["crane", "toils"], 16), game("daily", 2451, ["slate"], 4)]);
+  await B.putMany([game("free", 1794000000000, ["crane"], 16)]);
+
+  // 1. First syncs: A creates the gist, B finds it, both end with everything.
+  const r1 = await Y.syncNow(A, { fetch: gh.fetch });
+  ok("A creates a secret gist", Object.keys(gh.gists).length === 1 && gh.calls.includes("POST /gists"));
+  const r2 = await Y.syncNow(B, { fetch: gh.fetch });
+  ok("B finds the same gist", r2.gistId === r1.gistId && Object.keys(gh.gists).length === 1);
+  await Y.syncNow(A, { fetch: gh.fetch });
+  ok("both devices have all 3 games", (await ids(A)) === (await ids(B)) && (await A.getAll()).length === 3, await ids(A) + " | " + await ids(B));
+  ok("gist is sharded by month", Object.keys(gh.gists[r1.gistId].files).sort().join(",") === "deleted.json,games-2026-11.json,sedecordle-tracker.json", Object.keys(gh.gists[r1.gistId].files).join(","));
+  ok("truncated gist files are fetched via raw_url", gh.calls.some((c) => c.startsWith("GET https://raw.example/")));
+
+  // 2. No changes -> no writes.
+  const before = gh.calls.length;
+  const r3 = await Y.syncNow(A, { fetch: gh.fetch });
+  ok("idempotent: second sync writes nothing", !gh.calls.slice(before).some((c) => c.startsWith("PATCH")) && r3.pulled === 0 && r3.pushedFiles === 0, gh.calls.slice(before).join(" "));
+  const b2 = gh.calls.length;
+  await Y.syncNow(B, { fetch: gh.fetch });
+  ok("idempotent on the other device too", !gh.calls.slice(b2).some((c) => c.startsWith("PATCH")), gh.calls.slice(b2).join(" "));
+
+  // 3. Timings merge: A continued 2451 with timings, B has the same game finished but untimed.
+  const a2451 = await A.get("daily-2451");
+  const fullB = game("daily", 2451, ["slate"], 16, { untimed: true, updatedAt: 20 });
+  await B.put(fullB);
+  await Y.syncNow(B, { fetch: gh.fetch });
+  await Y.syncNow(A, { fetch: gh.fetch });
+  await Y.syncNow(B, { fetch: gh.fetch });
+  const ga = await A.get("daily-2451"), gb = await B.get("daily-2451");
+  ok("longer game wins on both devices", ga.guesses.length === 17 && gb.guesses.length === 17 && ga.status === "won");
+  ok("timings from the shorter copy are kept", ga.guesses.slice(0, 5).every((g, i) => g.t === a2451.guesses[i].t) && gb.guesses[0].t === a2451.guesses[0].t, JSON.stringify(ga.guesses.slice(0, 6)));
+
+  // 4. Deletion propagates.
+  await A.remove("daily-2450");
+  await Y.syncNow(A, { fetch: gh.fetch });
+  await Y.syncNow(B, { fetch: gh.fetch });
+  ok("deleting on A deletes on B", !(await B.get("daily-2450")) && !(await A.get("daily-2450")));
+  ok("tombstone stored remotely", JSON.parse(gh.gists[r1.gistId].files["deleted.json"]).deleted["daily-2450"] > 0);
+
+  // 5. A game changed after its deletion comes back.
+  const re = game("daily", 2450, ["crane"], 16, { updatedAt: Date.now() + 1000 });
+  await B.put(re);
+  await Y.syncNow(B, { fetch: gh.fetch });
+  await Y.syncNow(A, { fetch: gh.fetch });
+  ok("re-played game after deletion survives", !!(await A.get("daily-2450")) && !!(await B.get("daily-2450")));
+
+  // 6. Abandoned is sticky unless the game was continued.
+  await A.put(game("free", 1794100000000, ["crane"], 2, { status: "abandoned", updatedAt: 30 }));
+  await B.put(game("free", 1794100000000, ["crane"], 2, { updatedAt: 5 }));
+  await Y.syncNow(A, { fetch: gh.fetch });
+  await Y.syncNow(B, { fetch: gh.fetch });
+  ok("abandoned status syncs", (await B.get("free-1794100000000")).status === "abandoned");
+
+  // 7. Conflicting guess lists: newer edit wins.
+  const x = game("daily", 2440, ["crane"], 3, { updatedAt: 40 }), y = game("daily", 2440, ["slate"], 3, { updatedAt: 50 });
+  ok("conflict: newer wins", Y.mergeRecords(x, y).guesses[0].word === "slate" && Y.mergeRecords(y, x).guesses[0].word === "slate");
+  ok("merge is symmetric for extensions", JSON.stringify(Y.mergeRecords(a2451, fullB).guesses) === JSON.stringify(Y.mergeRecords(fullB, a2451).guesses));
+
+  // 8. Errors.
+  const bad = await device("wrong");
+  let err = null;
+  try { await Y.syncNow(bad, { fetch: gh.fetch }); } catch (e) { err = e; }
+  ok("bad token -> clear error, saved in settings", err && /token/i.test(err.message) && /token/i.test((await Y.getSettings(bad)).lastError || ""), err && err.message);
+  ok("autoSync never throws", (await Y.autoSync(bad, { fetch: gh.fetch, force: true })) === null);
+  ok("autoSync skips when not set up", (await Y.autoSync(SedecStore.makeStore(SedecStore.memoryArea()), { fetch: gh.fetch })) === null);
+  const c0 = gh.calls.length;
+  await Y.autoSync(A, { fetch: gh.fetch });
+  ok("autoSync throttled right after a sync", gh.calls.length === c0);
+  ok("token never written into the gist", !JSON.stringify(gh.gists).includes("good"));
+
+  // 9. Gist deleted remotely -> a new one is made.
+  delete gh.gists[r1.gistId];
+  const r9 = await Y.syncNow(A, { fetch: gh.fetch });
+  ok("recreates the gist if it was deleted", r9.gistId !== r1.gistId && Object.keys(gh.gists).length === 1 && (await A.getAll()).length === r9.games);
+
+  // 10. Shards.
+  ok("shardOf daily", Y.shardOf({ mode: "daily", seed: 2452 }) === "games-2026-11.json");
+  ok("shardOf daily #0", Y.shardOf({ mode: "daily", seed: 720 }) === "games-2022-02.json");
+  ok("shardOf free", Y.shardOf({ mode: "free", seed: Date.UTC(2025, 0, 31, 23) }) === "games-2025-01.json");
+
+  const failed = results.filter((r) => !r.pass);
+  document.getElementById("out").innerHTML =
+    `<p class="${failed.length ? "fail" : "pass"}">${results.length - failed.length}/${results.length} passed</p>` +
+    results.map((r) => `<div class="${r.pass ? "pass" : "fail"}">${r.pass ? "✓" : "✗"} ${r.name}${r.pass || r.extra == null ? "" : " — " + String(r.extra).replace(/</g, "&lt;")}</div>`).join("");
+  window.__syncResults = { passed: results.length - failed.length, total: results.length, failed };
+})().catch((e) => { document.getElementById("out").textContent = "CRASH: " + e.stack; window.__syncResults = { crash: e.stack }; });
+</script>
+</body>
+</html>

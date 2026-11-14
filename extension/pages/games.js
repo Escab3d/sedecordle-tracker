@@ -160,5 +160,7 @@
     });
   }
 
+  // Refresh when a background sync brought new or changed games.
+  window.addEventListener("sedec-data-changed", load);
   load();
 })();
