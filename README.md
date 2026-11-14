@@ -23,7 +23,9 @@ Build and host:
 python tools/build_webapp.py
 ```
 
-This writes `webapp/`, made from `extension/lib`, `extension/pages` (with the web-app tags added) and `web/`. Host that folder over HTTPS (for example on GitHub Pages), open `pages/setup.html` on the phone, and follow the steps there.
+This writes `webapp/`, made from `extension/lib`, `extension/pages` (with the web-app tags added) and `web/`.
+
+**Live web app:** https://escab3d.github.io/sedecordle-tracker/. GitHub Actions (`.github/workflows/pages.yml`) rebuilds and deploys it on every push to `main`. On the phone, open **https://escab3d.github.io/sedecordle-tracker/pages/setup.html** and follow the steps there.
 
 ## Pages
 
