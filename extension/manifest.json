@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Sedecordle Tracker",
+  "version": "0.1.0",
+  "description": "Records your sedecordle.com games locally so you can export and analyse them later.",
+  "permissions": ["storage", "unlimitedStorage"],
+  "action": {
+    "default_title": "Sedecordle Tracker",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://sedecordle.com/*", "https://www.sedecordle.com/*"],
+      "js": ["content/hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://sedecordle.com/*", "https://www.sedecordle.com/*"],
+      "js": ["lib/words.js", "lib/sedecordle.js", "lib/store.js", "lib/recorder.js", "content/bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": { "id": "sedecordle-tracker@local", "strict_min_version": "128.0" }
+  }
+}

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sedecordle Tracker tests</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 20px; background: #fff; color: #111; }
+  .pass { color: #1a7f37; } .fail { color: #b3261e; font-weight: 600; }
+  pre { white-space: pre-wrap; }
+</style>
+<script>
+  // Fresh slate for the hook test, then fake extension storage for bridge.js.
+  localStorage.clear();
+  window.__memArea = null;
+</script>
+<script src="../extension/lib/words.js"></script>
+<script src="../extension/lib/sedecordle.js"></script>
+<script src="../extension/lib/store.js"></script>
+<script>
+  window.__memArea = SedecStore.memoryArea();
+  window.chrome = { storage: { local: window.__memArea } };
+  // A game left over from "before the extension was installed", for the snapshot test.
+  localStorage.setItem("last_free", "1700000000000");
+  localStorage.setItem("free_guesses", "salve,prone");
+</script>
+<script src="../extension/content/hook.js"></script>
+<script src="../extension/lib/recorder.js"></script>
+<script src="../extension/lib/export.js"></script>
+<script src="../extension/lib/stats.js"></script>
+<script src="../extension/lib/analysis.js"></script>
+<script src="../extension/lib/ingest.js"></script>
+<script src="../extension/content/bridge.js"></script>
+</head>
+<body>
+<h1>Sedecordle Tracker tests</h1>
+<div id="out">running…</div>
+<script>
+(async function () {
+  const results = [];
+  const ok = (name, cond, extra) => results.push({ name, pass: !!cond, extra });
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // 1. Answer generation matches the live site (reference values captured from sedecordle.com).
+  const REF = {"720":"blood meaty ripen silly testy surer roger rabbi toxin array tubal gaily mamma bread booty blimp","721":"swept femme hound vouch value bully clack whiny noisy spilt lasso aloud guava pluck truth rural","1000":"women fruit flung laugh layer clang niece segue ingot thank juice month ruder bezel alpha hussy","2452":"lasso ferry gamma befit payer silly awful bosom budge shire yield under right madly vaunt navel","2453":"jumpy frond fjord shalt reedy masse river agree tangy batty tulip range elope spear lurid throw","5000":"biddy basal braid cried nosey shown fetid adore ester thick wreak baler would rupee curly order","1794411148385":"slosh khaki noise crone being croak modem build court hydro quell crass facet apply lefty while","1700000000000":"salve prone paddy furry these topaz prune color awake payer voter troop speck limit groin vouch","1234567890123":"antic plier alive champ setup pixel gaily havoc union cameo crust riser scour rehab liken shalt","4294967295":"uncle curve topic purge crush prune burly ranch vivid moody guide ascot order blade fewer actor","4294967296":"haste young labor recur stock elbow koala pubic swoop diary slain sonar super piggy prune gulch"};
+  for (const [seed, words] of Object.entries(REF)) {
+    const got = Sedec.answersForSeed(Number(seed)).join(" ");
+    ok(`answers for seed ${seed}`, got === words, got === words ? "" : got);
+  }
+
+  // 2. Feedback matches a verbatim port of the site's identify_guess on many random pairs.
+  function siteScore(answer, guess) {
+    const ans = answer.split(""), gue = guess.split(""), icons = ["B","B","B","B","B"];
+    for (let c = 0; c < 5; c++) if (ans[c] == gue[c]) { ans[c] = " "; gue[c] = " "; icons[c] = "G"; }
+    for (let c = 0; c < 5; c++) if (ans.indexOf(gue[c]) != -1 && ans[c] != gue[c] && gue[c] != " ") { ans[ans.indexOf(gue[c])] = " "; icons[c] = "Y"; }
+    return icons.join("");
+  }
+  const W = SEDEC_WORDS, pool = W.answers.concat(W.allowed);
+  let mism = 0, first = "";
+  const rnd = Sedec.MersenneTwister(42);
+  for (let i = 0; i < 200000; i++) {
+    const a = W.answers[rnd.int31() % W.answers.length], g = pool[rnd.int31() % pool.length];
+    if (Sedec.score(g, a) !== siteScore(a, g)) { mism++; first = first || `${g}/${a}`; }
+  }
+  for (const [g, a] of [["speed","abide"],["eerie","there"],["llama","hello"],["geese","eerie"],["abbey","babes"]])
+    if (Sedec.score(g, a) !== siteScore(a, g)) { mism++; first = first || `${g}/${a}`; }
+  ok("feedback matches site on 200k random pairs + duplicate-letter cases", mism === 0, first);
+  ok("score sanity: speed vs abide", Sedec.score("speed", "abide") === "BBYBY", Sedec.score("speed", "abide"));
+
+  // 3. Daily seed formula for known dates (local time; matches the site's "Daily #N").
+  ok("daily seed for 2022-02-13 is 720", Sedec.dailySeedFor(new Date(2022, 1, 13, 12)) === 720);
+  ok("daily seed today is 2452 (2026-11-11)", Sedec.dailySeedFor(new Date(2026, 10, 11, 12)) === 2452);
+
+  // 4. Hook + bridge + recorder, driven exactly the way the site writes localStorage.
+  await sleep(50);
+  const store = SedecStore.makeStore(window.__memArea);
+  let snap = await store.get("free-1700000000000");
+  ok("snapshot: pre-existing free game backfilled", snap && snap.source === "backfill" && eq(snap.guesses.map(g => g.word), ["salve","prone"]) && snap.guesses.every(g => g.t === null), JSON.stringify(snap));
+  ok("snapshot: free startedAt = seed", snap && snap.startedAt === 1700000000000);
+
+  // Daily game: open, reset string, then guesses one at a time. Win daily 2452 using its answers.
+  const daily = Sedec.answersForSeed(2452);
+  window.answer = daily.slice(); // what the page exposes
+  localStorage.setItem("last_daily", "2452");
+  localStorage.setItem("daily_guesses", "");
+  const words = ["crane", "toils"].concat(daily); // 18 guesses, wins on the 18th
+  for (let i = 1; i <= words.length; i++) {
+    localStorage.setItem("daily_guesses", words.slice(0, i).join(","));
+    await sleep(2);
+  }
+  await sleep(50);
+  let d = await store.get("daily-2452");
+  ok("daily: record exists with 18 guesses", d && d.guesses.length === 18, d && d.guesses.length);
+  ok("daily: status won, finishedAt set", d && d.status === "won" && Number.isFinite(d.finishedAt));
+  ok("daily: every guess has a timestamp", d && d.guesses.every(g => Number.isFinite(g.t)));
+  ok("daily: startedAt from open event", d && Number.isFinite(d.startedAt) && d.startedAt <= d.guesses[0].t);
+  ok("daily: verified against page answers", d && d.verified === true);
+  ok("daily: dailyNumber 1732", d && d.dailyNumber === 1732);
+  const der = Sedec.derive(d);
+  ok("derive: solvedAt is guess index of each answer", eq(der.solvedAt, daily.map((_, i) => i + 2)));
+  ok("derive: feedback null after a board is solved", der.feedback[17][0] === null && der.feedback[2][0] === "GGGGG");
+
+  // Reload: site restores without writing; hook snapshot repeats the same list -> no change.
+  const before = JSON.stringify(d);
+  window.postMessage({ __sedecordleTracker: { type: "event", ev: { kind: "snapshot", mode: "daily", seed: 2452, words, t: Date.now(), path: "/" } } }, location.origin);
+  await sleep(50);
+  ok("reload snapshot doesn't change a finished game", JSON.stringify(await store.get("daily-2452")) === before);
+
+  // Free game: continue the backfilled one, then "New game" (removeItem) -> abandoned.
+  window.answer = Sedec.answersForSeed(1700000000000);
+  localStorage.setItem("free_guesses", "salve,prone,crane");
+  await sleep(30);
+  snap = await store.get("free-1700000000000");
+  ok("free: live guess appended with timestamp, old ones keep null", snap.guesses.length === 3 && snap.guesses[2].t !== null && snap.guesses[0].t === null);
+  localStorage.removeItem("free_guesses");
+  localStorage.removeItem("last_free");
+  localStorage.setItem("last_free", "1794411148385");
+  await sleep(30);
+  snap = await store.get("free-1700000000000");
+  ok("free: new game marks the old one abandoned", snap.status === "abandoned", snap.status);
+
+  // Wrong page answers -> verified false (site logic changed).
+  window.answer = new Array(16).fill("aaaaa");
+  localStorage.setItem("free_guesses", "crane");
+  await sleep(30);
+  const f2 = await store.get("free-1794411148385");
+  ok("verification catches a mismatch", f2 && f2.verified === false && Array.isArray(f2.pageAnswers));
+
+  // Daily left unfinished, next day opened -> abandoned.
+  window.answer = Sedec.answersForSeed(2453);
+  localStorage.setItem("last_daily", "2453");
+  localStorage.setItem("daily_guesses", "");
+  localStorage.setItem("daily_guesses", "crane");
+  await sleep(30);
+  localStorage.setItem("last_daily", "2454");
+  await sleep(30);
+  ok("unfinished daily abandoned when a newer daily opens", (await store.get("daily-2453")).status === "abandoned");
+  ok("finished daily untouched by newer daily", (await store.get("daily-2452")).status === "won");
+
+  // Garbage events are ignored.
+  window.postMessage({ __sedecordleTracker: { type: "event", ev: { kind: "guesses", mode: "daily", seed: NaN, words: ["crane"], t: 1 } } }, location.origin);
+  window.postMessage({ __sedecordleTracker: { type: "event", ev: { kind: "guesses", mode: "x", seed: 5, words: ["crane"], t: 1 } } }, location.origin);
+  window.postMessage({ __sedecordleTracker: { type: "event", ev: { kind: "guesses", mode: "daily", seed: 5, words: ["<img>"], t: 1 } } }, location.origin);
+  await sleep(30);
+  ok("invalid events ignored", (await store.getAll()).length === 4, (await store.getAll()).length);
+
+  // 5. Export / import round trip.
+  const all = await store.getAll();
+  const json = SedecExport.toJSON(all);
+  const parsed = SedecExport.parseImport(json);
+  ok("JSON round trip keeps all records", parsed.games.length === all.length && parsed.rejected === 0);
+  const plan = SedecExport.mergePlan(all, parsed.games);
+  ok("re-importing the same export changes nothing", plan.write.length === 0 && plan.skipped === all.length);
+  const newer = parsed.games.map(r => Object.assign({}, r, { updatedAt: r.updatedAt + 1 }));
+  ok("newer records win on import", SedecExport.mergePlan(all, newer).updated === all.length);
+  const bad = SedecExport.parseImport(JSON.stringify([{ mode: "daily", seed: 1, guesses: ["zzzzz"] }, { mode: "nope" }, { mode: "daily", seed: 2452, guesses: daily }]));
+  ok("import sanitizes: bad records rejected, status recomputed", bad.rejected === 1 && bad.games.length === 2 && bad.games[1].status === "won", JSON.stringify(bad.games.map(g => g.status)));
+  let threw = false; try { SedecExport.parseImport("{\"x\":1}"); } catch (e) { threw = true; }
+  ok("import rejects foreign JSON", threw);
+  const csv = SedecExport.gamesCSV(all);
+  ok("games CSV has header + 1 row per game", csv.trim().split("\r\n").length === all.length + 1);
+  const gcsv = SedecExport.guessesCSV(all);
+  ok("guesses CSV has 1 row per guess", gcsv.trim().split("\r\n").length === 1 + all.reduce((s, r) => s + r.guesses.length, 0));
+  ok("CSV escaping", SedecExport.gamesCSV([Object.assign({}, d, { source: 'a,"b"' })]).includes('"a,""b"""'));
+
+  // 6. Stats.
+  const T = SedecStats;
+  function mk(mode, seed, nExtra, status, start) {
+    const ans = Sedec.answersForSeed(seed);
+    const extra = ["crane", "toils", "dumpy", "gawky", "bliss", "fjord"].filter(w => !ans.includes(w)).slice(0, nExtra);
+    const r = Sedec.newRecord(mode, seed, { startedAt: start });
+    let t = start;
+    r.guesses = extra.concat(ans).slice(0, 21).map(w => ({ word: w, t: (t += 10000) }));
+    r.status = status || Sedec.derive(r).outcome;
+    r.finishedAt = r.status === "won" || r.status === "lost" ? t : null;
+    return r;
+  }
+  const sg = [
+    mk("daily", 100, 2, null, 1000),   // won 18
+    mk("daily", 101, 3, null, 2000),   // won 19
+    mk("daily", 102, 6, null, 3000),   // lost (6 + 15 = 21, one board unsolved)
+    mk("daily", 104, 1, null, 4000),   // won 17
+    mk("daily", 105, 1, null, 5000),   // won 17
+    mk("free", 9e11, 2, null, 6000),    // won 18
+    mk("free", 9e11 + 1, 1, "abandoned", 7000),
+  ];
+  ok("stats: lost game built correctly", sg[2].status === "lost" && Sedec.derive(sg[2]).boardsSolved === 15);
+  const sm = T.summary(sg);
+  ok("summary: played/wins exclude abandoned", sm.played === 6 && sm.wins === 5 && sm.losses === 1, JSON.stringify(sm));
+  ok("summary: avg guesses on wins", Math.abs(sm.avgGuesses - (18 + 19 + 17 + 17 + 18) / 5) < 1e-9);
+  ok("summary: best game", sm.bestGuesses === 17);
+  ok("summary: avg boards on loss", sm.avgBoardsOnLoss === 15);
+  ok("streaks: current counts through yesterday", eq(T.streaks(sg, 106), { current: 2, best: 2 }), JSON.stringify(T.streaks(sg, 106)));
+  ok("streaks: today won counts", T.streaks(sg, 105).current === 2);
+  ok("streaks: gap of 2+ days resets current", T.streaks(sg, 107).current === 0);
+  ok("streaks: loss breaks best run", T.streaks([mk("daily", 1, 0), mk("daily", 2, 0), mk("daily", 3, 6), mk("daily", 4, 0)], 4).best === 2);
+  const dist = T.distribution(sg);
+  ok("distribution", eq(dist.map(d => d.count), [0, 2, 2, 1, 0, 0, 1]) && dist[6].key === "X", JSON.stringify(dist));
+  const op = T.openers(sg);
+  ok("openers grouped by first word", op.find(o => o.word === "crane").games === 6);
+  ok("openers greens/board in range", op.every(o => o.greensPerBoard >= 0 && o.greensPerBoard <= 5));
+  const bd = T.boards(sg);
+  ok("boards: last-solved counts sum to wins", bd.positions.reduce((n, p) => n + p.lastCount, 0) === 5 && bd.wonCount === 5);
+  ok("boards: board 16 last in every win (answers guessed in order)", bd.positions[15].lastCount === 5);
+  ok("boards: one unsolved board in the loss", bd.positions.reduce((n, p) => n + p.unsolvedCount, 0) === 1 && bd.positions[15].unsolvedCount === 1);
+  const th = T.thinking(sg);
+  ok("thinking: median 10s per guess, abandoned excluded", th[0].medianMs === 10000 && th[0].samples === 6, JSON.stringify(th[0]));
+  ok("thinking: ignores untimed", T.thinking([Object.assign(mk("daily", 5, 0), { startedAt: null, guesses: mk("daily", 5, 0).guesses.map(g => ({ word: g.word, t: null })) })]).every(x => x.samples === 0));
+  ok("trend ordered oldest first, finished only", eq(T.trend(sg).map(p => p.id), ["daily-100", "daily-101", "daily-102", "daily-104", "daily-105", "free-900000000000"]));
+  ok("filter by mode and since", T.filter(sg, { mode: "daily", sinceMs: 3000 }).length === 3);
+  ok("median even/odd", T.median([1, 3]) === 2 && T.median([5, 1, 3]) === 3 && T.median([]) === null);
+
+  // 6b. Analysis cache lives beside games and is removed with them.
+  const st2 = SedecStore.makeStore(SedecStore.memoryArea());
+  await st2.put({ id: "daily-1" }); await st2.put({ id: "daily-2" });
+  await st2.putAnalysis({ id: "daily-1", version: 1 }); await st2.putAnalysis({ id: "daily-2", version: 1 });
+  ok("analyses don't show up as games", (await st2.getAll()).length === 2 && (await st2.getAllAnalyses()).length === 2);
+  await st2.remove("daily-1");
+  ok("deleting a game deletes its analysis", (await st2.getAnalysis("daily-1")) === null && (await st2.getAnalysis("daily-2")) !== null);
+  await st2.clear();
+  ok("delete all clears analyses too", (await st2.getAllAnalyses()).length === 0 && (await st2.getAll()).length === 0);
+
+  // 7. Candidate tracking (replay).
+  const rg = mk("daily", 2452, 4, null, 1000); // crane toils dumpy gawky + 16 answers -> won in 20
+  const tr = SedecAnalysis.candidateTrace(rg);
+  const ansList = SEDEC_WORDS.answers;
+  ok("trace: step 0 has the full answer list on every board", tr.boards.every(b => b.counts[0] === ansList.length));
+  ok("trace: answer is always still a candidate", tr.boards.every(b => b.counts.every((c, k) => c >= 1)) &&
+    tr.boards.every(b => b.lists.every(l => !l || l.includes(b.answer))));
+  ok("trace: counts never increase", tr.boards.every(b => b.counts.every((c, k) => k === 0 || c <= b.counts[k - 1])));
+  ok("trace: solved boards end at exactly 1", tr.boards.every(b => b.counts[b.solvedAt + 1] === 1));
+  // Independent brute force for board 0 after the first two guesses.
+  const a0 = tr.boards[0].answer;
+  const brute = ansList.filter(w => Sedec.score("crane", w) === Sedec.score("crane", a0) && Sedec.score("toils", w) === Sedec.score("toils", a0)).length;
+  ok("trace: matches brute-force filtering", tr.boards[0].counts[2] === brute, `${tr.boards[0].counts[2]} vs ${brute}`);
+  ok("trace: perStep totals", tr.perStep[0].totalLeft === 16 * ansList.length && tr.perStep[0].unsolved === 16 && tr.perStep[20].unsolved === 0 && tr.perStep[20].totalLeft === 0);
+  ok("trace: singles counted before free solves", tr.perStep.slice(4).every((p, i) => p.singles <= p.unsolved));
+  const t0 = performance.now(); SedecAnalysis.candidateTrace(sg[2]); const ms = performance.now() - t0;
+  ok("trace: fast enough for the page (< 300 ms)", ms < 300, ms.toFixed(0) + " ms");
+
+  // 8. Bookmarklet ingest.
+  const IG = SedecIngest;
+  const enc = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const ans9 = Sedec.answersForSeed(2452);
+  const capGame = (words, times, extra) => Object.assign({ mode: "daily", seed: 2452, guesses: words.map((w, i) => ({ word: w, t: times[i] ?? null })), startedAt: 500, updatedAt: Date.now() }, extra || {});
+  const p1 = IG.decodePayload("#d=" + enc({ format: "sedecordle-capture", v: 1, games: [capGame(["crane", "toils"], [1000, 2000])] }));
+  ok("decode: payload round trip", p1.games.length === 1 && p1.games[0].id === "daily-2452" && p1.games[0].source === "bookmarklet" && p1.games[0].guesses[1].t === 2000);
+  let threw2 = false; try { IG.decodePayload("#d=!!!"); } catch (e) { threw2 = true; }
+  ok("decode: damaged data rejected", threw2);
+  let threw3 = false; try { IG.decodePayload("#d=" + enc({ format: "other", games: [] })); } catch (e) { threw3 = true; }
+  ok("decode: foreign data rejected", threw3);
+  ok("decode: unicode-safe", IG.decodePayload("#d=" + enc({ format: "sedecordle-capture", note: "őűé", games: [] })).games.length === 0);
+  const igStore = SedecStore.makeStore(SedecStore.memoryArea());
+  await IG.ingest(igStore, p1.games);
+  // Second capture: game finished, but this tab lost its timing for the first guesses (null).
+  const p2 = IG.decodePayload("#d=" + enc({ format: "sedecordle-capture", games: [capGame(["crane", "toils"].concat(ans9), [null, null, 3000])] }));
+  const r2 = await IG.ingest(igStore, p2.games);
+  const g2 = await igStore.get("daily-2452");
+  ok("ingest: extends game and keeps earlier timings", g2.guesses.length === 18 && g2.guesses[0].t === 1000 && g2.guesses[1].t === 2000 && g2.guesses[2].t === 3000);
+  ok("ingest: status won, finishedAt from last timed guess or null", g2.status === "won" && r2[0].changed);
+  const r3 = await IG.ingest(igStore, p2.games);
+  ok("ingest: same capture twice changes nothing", r3[0].changed === false && !r3[0].isNew);
+  // An older shorter capture arriving late must not shrink the game.
+  await IG.ingest(igStore, p1.games);
+  ok("ingest: older capture doesn't shrink a game", (await igStore.get("daily-2452")).guesses.length === 18);
+  // Abandonment: in-progress free game, then a capture with a different free game.
+  await IG.ingest(igStore, IG.decodePayload("#d=" + enc({ format: "sedecordle-capture", games: [{ mode: "free", seed: 1000000, guesses: [{ word: "crane", t: null }], updatedAt: 1 }] })).games);
+  await IG.ingest(igStore, IG.decodePayload("#d=" + enc({ format: "sedecordle-capture", games: [{ mode: "free", seed: 2000000, guesses: [{ word: "slate", t: null }], updatedAt: 2 }] })).games);
+  ok("ingest: older free game marked abandoned", (await igStore.get("free-1000000")).status === "abandoned" && (await igStore.get("free-2000000")).status === "in_progress");
+  ok("ingest: free startedAt = seed", (await igStore.get("free-2000000")).startedAt === 2000000);
+
+  const failed = results.filter(r => !r.pass);
+  document.getElementById("out").innerHTML =
+    `<p class="${failed.length ? "fail" : "pass"}">${results.length - failed.length}/${results.length} passed</p>` +
+    results.map(r => `<div class="${r.pass ? "pass" : "fail"}">${r.pass ? "✓" : "✗"} ${r.name}${r.pass || !r.extra ? "" : " — " + String(r.extra).replace(/</g, "&lt;")}</div>`).join("");
+  window.__testResults = { passed: results.length - failed.length, total: results.length, failed };
+})();
+</script>
+</body>
+</html>

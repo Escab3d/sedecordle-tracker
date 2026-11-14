@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- Shows an extension page outside the extension, with sample data.
+     Usage: preview.html?page=pages/dashboard.html  (or pages/games.html, popup/popup.html)
+     Add &empty=1 to start with no games. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extension page preview</title>
+</head>
+<body>
+<script src="../extension/lib/words.js"></script>
+<script src="../extension/lib/sedecordle.js"></script>
+<script src="../extension/lib/store.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const page = params.get("page") || "pages/dashboard.html";
+  if (params.get("empty")) window.__sedecTestArea = SedecStore.memoryArea();
+</script>
+<script>
+  (async function () {
+    if (!window.__sedecTestArea) await loadScript("sample-data.js");
+    const base = new URL("../extension/" + page, location.href);
+    const html = await (await fetch(base)).text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    document.title = doc.title + " (preview)";
+    for (const n of doc.head.querySelectorAll("link[rel=stylesheet], style")) {
+      const c = n.cloneNode(true);
+      if (c.tagName === "LINK") c.href = new URL(n.getAttribute("href"), base).href;
+      document.head.append(c);
+    }
+    // Rewrite in-page links between extension pages to go through the preview too.
+    for (const a of doc.querySelectorAll("a[href$='.html']")) {
+      const target = new URL(a.getAttribute("href"), base).pathname.split("/extension/")[1];
+      if (target) a.setAttribute("href", "preview.html?page=" + target);
+    }
+    if (doc.body.getAttribute("style")) document.body.setAttribute("style", doc.body.getAttribute("style"));
+    const scripts = [...doc.body.querySelectorAll("script")].map((s) => new URL(s.getAttribute("src"), base).href);
+    doc.body.querySelectorAll("script").forEach((s) => s.remove());
+    document.body.append(...doc.body.childNodes);
+    const already = ["words.js", "sedecordle.js", "store.js"];
+    for (const src of scripts) if (!already.some((a) => src.endsWith("/lib/" + a))) await loadScript(src);
+  })();
+  function loadScript(src) {
+    return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.body.append(s); });
+  }
+</script>
+</body>
+</html>

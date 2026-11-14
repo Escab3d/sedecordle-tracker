@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sedecordle Tracker</title>
+  <link rel="stylesheet" href="../pages/common.css">
+  <style>
+    body { width: 300px; padding: 14px; }
+    h1 { font-size: 16px; }
+    .today { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+    .today .line { margin-top: 2px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+    .stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stat .k { font-size: 11px; color: var(--muted); }
+    .buttons { display: flex; gap: 6px; }
+    .buttons button { flex: 1; }
+    #counts { font-size: 12px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Sedecordle Tracker</h1>
+  <div class="today" id="today">Loading…</div>
+  <div class="stats" id="stats"></div>
+  <div class="muted" id="counts"></div>
+  <div class="buttons">
+    <button id="open-dash" class="primary">Dashboard</button>
+    <button id="open-log">Game log</button>
+  </div>
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="../lib/stats.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e2e2de;
+  --accent: #2f7d4f; --accent-text: #fff; --warn: #b3261e;
+  --green: #4f9d5c; --yellow: #c9a227; --grey: #8a8a8e;
+  /* charts: one series hue, a status colour for losses, a one-hue sequential ramp */
+  --series-1: #2a78d6; --status-critical: #d03b3b;
+  --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
+  --seq-ink-lo: #0d366b; --seq-ink-hi: #ffffff;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161618; --panel: #1f1f22; --text: #ececee; --muted: #9a9aa0; --line: #313136;
+    --accent: #4fae6e; --accent-text: #0d1a12; --warn: #f2b8b5;
+    --series-1: #3987e5; --status-critical: #e66767;
+    --seq-1: #1b3049; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #9ec5f4;
+    --seq-ink-lo: #ececee; --seq-ink-hi: #0d1a2e;
+  }
+}
+.topbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 14px 20px;
+  border-bottom: 1px solid var(--line); background: var(--panel); }
+.topbar nav { display: flex; gap: 4px; }
+.topbar nav a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+.topbar nav a:hover { color: var(--text); }
+.topbar nav a[aria-current="page"] { color: var(--text); background: var(--bg); font-weight: 600; }
+a { color: var(--series-1); }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.is-ext .web-only, .is-web .ext-only { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+h1 { font-size: 20px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+.muted { color: var(--muted); }
+button, .button {
+  font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-block;
+}
+button:hover, .button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--warn); }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+.tag.won { background: var(--green); color: #fff; border-color: transparent; }
+.tag.lost { background: var(--warn); color: var(--bg); border-color: transparent; }
+.tag.in_progress { border-color: var(--yellow); }
+.tag.abandoned { color: var(--muted); }

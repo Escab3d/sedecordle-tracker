@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Save game</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+    .card h2 { margin: 0 0 4px; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .error { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="setup.html" class="web-only">Setup</a></nav>
+  </header>
+  <main class="wrap">
+    <div id="out" class="muted">Saving…</div>
+  </main>
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="../lib/ingest.js"></script>
+  <script src="add.js"></script>
+</body>
+</html>

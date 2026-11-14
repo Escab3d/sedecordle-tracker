@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Replay</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="replay.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html" aria-current="page">Replay</a><a href="setup.html" class="web-only">Setup</a></nav>
+  </header>
+
+  <main class="replay">
+    <div class="pick">
+      <label>Game <select id="game-select"></select></label>
+      <span id="game-meta" class="muted"></span>
+    </div>
+
+    <p id="message" class="muted" hidden></p>
+
+    <div id="viewer" hidden>
+      <section class="analysis" id="analysis" aria-live="polite"></section>
+
+      <div class="stepper">
+        <div class="stepper-buttons">
+          <button id="first" title="Start (Home)">⏮</button>
+          <button id="prev" title="Previous guess (←)">◀</button>
+          <button id="next" title="Next guess (→)">▶</button>
+          <button id="last" title="End (End)">⏭</button>
+        </div>
+        <input type="range" id="slider" min="0" value="0" aria-label="Guess">
+        <div id="step-label" class="step-label"></div>
+      </div>
+
+      <div class="step-summary" id="step-summary"></div>
+
+      <div class="layout">
+        <section class="boards-wrap">
+          <div class="board-tools">
+            <label><input type="checkbox" id="show-answers" checked> Show answers</label>
+            <label><input type="checkbox" id="only-current"> Only the current guess row</label>
+          </div>
+          <div id="boards" class="boards"></div>
+        </section>
+
+        <aside class="guess-list">
+          <h2>Guesses</h2>
+          <p class="muted sub">Possibilities = answer-list words still consistent with the colours, summed over unsolved boards.
+            Skill = your guess compared with the best one available (any free solve counts as 100%).
+            Luck = how much better (+) or worse (−) the result was than that guess's average.</p>
+          <div class="table-wrap">
+            <table id="guess-table">
+              <thead><tr><th>#</th><th>Guess</th><th class="num">Time</th><th class="num">Solved</th><th class="num">Possibilities</th><th class="num">Skill</th><th class="num">Luck</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="../lib/stats.js"></script>
+  <script src="../lib/analysis.js"></script>
+  <script src="../lib/engine.js"></script>
+  <script src="engine-client.js"></script>
+  <script src="replay.js"></script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Engine tests</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 20px; background: #fff; color: #111; }
+  .pass { color: #1a7f37; } .fail { color: #b3261e; font-weight: 600; }
+</style>
+<script src="../extension/lib/words.js"></script>
+<script src="../extension/lib/sedecordle.js"></script>
+<script src="../extension/lib/engine.js"></script>
+</head>
+<body>
+<h1>Engine tests (slow: builds the 30 MB pattern table and plays bot games)</h1>
+<div id="out">running…</div>
+<script>
+(async function () {
+  const results = [], info = [];
+  const ok = (name, cond, extra) => results.push({ name, pass: !!cond, extra });
+  const E = SedecEngine, S = Sedec;
+  const W = E.init();
+  const tick = () => new Promise(r => setTimeout(r, 0));
+
+  // 1. Pattern codes match Sedec.score on random pairs.
+  const rnd = S.MersenneTwister(99);
+  let bad = 0, firstBad = "";
+  for (let i = 0; i < 100000; i++) {
+    const gi = rnd.int31() % W.G, ai = rnd.int31() % W.A;
+    const want = E.encode(S.score(W.guesses[gi], W.answers[ai]));
+    if (E.patternIdx(gi, ai) !== want) { bad++; firstBad = firstBad || W.guesses[gi] + "/" + W.answers[ai]; }
+  }
+  ok("pattern codes match Sedec.score (100k pairs)", bad === 0, firstBad);
+
+  let t0 = performance.now();
+  E.buildTable();
+  const tableMs = performance.now() - t0;
+  info.push(`table build ${tableMs.toFixed(0)} ms`);
+  ok("table builds in < 8 s", tableMs < 8000, tableMs.toFixed(0) + " ms");
+  await tick();
+
+  // 2. Opening: best single-board entropy should be a well-known strong opener.
+  const I = E._internal;
+  t0 = performance.now();
+  const open = I.search([{ cand: W.full, mult: 1 }]);
+  const openMs = performance.now() - t0;
+  const order = Array.from(open.H.keys()).sort((a, b) => open.H[b] - open.H[a]).slice(0, 5);
+  const top5 = order.map(i => `${W.guesses[i]} ${open.H[i].toFixed(3)}`);
+  info.push("top openers by entropy: " + top5.join(", ") + ` (${openMs.toFixed(0)} ms)`);
+  ok("best opener is a known strong one", ["soare", "roate", "raise", "raile", "slate", "reast", "salet", "crate", "trace", "arose", "orate", "tares", "lares", "rales", "soler", "arles"].includes(W.guesses[order[0]]), top5[0]);
+  ok("opener entropy ~5.8–6.0 bits", open.H[order[0]] > 5.7 && open.H[order[0]] < 6.1);
+  // Entropy brute-force check for one word.
+  const w = "crane", gi = W.gIndex.get("crane");
+  const buckets = {};
+  for (const a of W.answers) { const k = S.score(w, a); buckets[k] = (buckets[k] || 0) + 1; }
+  const Hb = -Object.values(buckets).reduce((s, c) => s + (c / W.A) * Math.log2(c / W.A), 0);
+  ok("entropy matches brute force (crane)", Math.abs(Hb - open.H[gi]) < 1e-9, `${Hb} vs ${open.H[gi]}`);
+  await tick();
+
+  // 3. Analyse a real-shaped game.
+  const ans = S.answersForSeed(2452);
+  const rec = S.newRecord("daily", 2452, { startedAt: 0 });
+  rec.guesses = ["crane", "toils", "dumpy"].concat(ans).map((word, i) => ({ word, t: (i + 1) * 10000 }));
+  t0 = performance.now();
+  const res = E.analyseGame(rec);
+  const gameMs = performance.now() - t0;
+  info.push(`analyse one game ${gameMs.toFixed(0)} ms; bot ${res.summary.bot.guesses} guesses: ${res.summary.bot.words.join(" ")}`);
+  ok("analysis has one step per guess", res.steps.length === 19);
+  ok("skills within (0, 1]", res.steps.every(s => s.skill > 0 && s.skill <= 1 + 1e-9));
+  ok("wasted = guesses − 16 on a win", res.summary.wasted === 3, res.summary.wasted);
+  ok("free solves detected", res.summary.freeSolves > 5, res.summary.freeSolves);
+  ok("best value ≥ your value every step", res.steps.every(s => s.bestValue + 1e-9 >= s.value));
+  const fs = res.steps.filter(s => s.singlesBefore > 0);
+  ok("free-solve steps: best guess is a free solve (value ≥ 1, solves for sure)", fs.length > 0 && fs.every(s => s.bestValue >= 1 - 1e-12 && s.best[0].ps >= 1),
+    JSON.stringify(fs.filter(s => !(s.bestValue >= 1 - 1e-12 && s.best[0].ps >= 1)).map(s => s.best[0])));
+  ok("playing a free solve scores full skill", res.steps.filter(s => s.freeSolve).every(s => s.skill === 1),
+    JSON.stringify(res.steps.filter(s => s.freeSolve && s.skill < 0.9).map(s => [s.word, s.skill.toFixed(3), s.best[0].word])));
+  ok("bot wins this game", res.summary.bot.won);
+  // Missed free solve: replace a free-solve guess with a pointless probe when a board is down to one.
+  const idx = res.steps.findIndex(s => s.singlesBefore > 0);
+  if (idx >= 0) {
+    const rec2 = JSON.parse(JSON.stringify(rec));
+    rec2.guesses.splice(idx, 0, { word: "fuzzy", t: null });
+    const res2 = E.analyseGame(rec2);
+    ok("missed free solve flagged", res2.steps[idx].missedFree && res2.steps[idx].wasted, JSON.stringify({ m: res2.steps[idx].missedFree, sb: res2.steps[idx].singlesBefore }));
+    ok("missed free solve has skill < 1", res2.steps[idx].skill < 1);
+  }
+  ok("analysis is fast (< 4 s)", gameMs < 4000, gameMs.toFixed(0) + " ms");
+  ok("luck stays in a sane range per guess", res.steps.every(s => Math.abs(s.luck) < 3), JSON.stringify(res.steps.map(s => s.luck.toFixed(2))));
+  info.push("skills: " + res.steps.map(s => `${s.word} ${Math.round(s.skill * 100)}${s.freeSolve ? "*" : ""}`).join(", "));
+  info.push("luck: " + res.steps.map(s => s.luck.toFixed(2)).join(" "));
+  await tick();
+
+  // 4. Bot strength over random seeds.
+  t0 = performance.now();
+  const N = 25, totals = [];
+  let wins = 0;
+  for (let k = 0; k < N; k++) {
+    const seed = 100000 + k * 7919;
+    const idxs = S.answersForSeed(seed).map(w => W.answers.indexOf(w));
+    const b = E.simulateBot(idxs);
+    totals.push(b.guesses);
+    if (b.won) wins++;
+    if (k % 5 === 4) await tick();
+  }
+  const avgBot = totals.reduce((a, b) => a + b, 0) / N;
+  info.push(`bot over ${N} seeds: avg ${avgBot.toFixed(2)} guesses, ${wins}/${N} wins, range ${Math.min(...totals)}–${Math.max(...totals)} (${((performance.now() - t0) / N).toFixed(0)} ms/game)`);
+  ok("bot wins every sampled game", wins === N);
+  ok("bot averages under 19 guesses", avgBot < 19, avgBot.toFixed(2));
+
+  const failed = results.filter(r => !r.pass);
+  document.getElementById("out").innerHTML =
+    `<p class="${failed.length ? "fail" : "pass"}">${results.length - failed.length}/${results.length} passed</p>` +
+    results.map(r => `<div class="${r.pass ? "pass" : "fail"}">${r.pass ? "✓" : "✗"} ${r.name}${r.pass || r.extra == null ? "" : " — " + r.extra}</div>`).join("") +
+    "<h3>Info</h3>" + info.map(i => `<div>${i}</div>`).join("");
+  window.__engineResults = { passed: results.length - failed.length, total: results.length, failed, info };
+})();
+</script>
+</body>
+</html>

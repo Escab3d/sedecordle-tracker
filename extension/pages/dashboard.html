@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Dashboard</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html" aria-current="page">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="setup.html" class="web-only">Setup</a></nav>
+  </header>
+
+  <main class="dash">
+    <div class="filters">
+      <label>Mode
+        <select id="f-mode"><option value="">All games</option><option value="daily">Daily</option><option value="free">Free play</option></select>
+      </label>
+      <label>Period
+        <select id="f-period"><option value="">All time</option><option value="90">Last 90 days</option><option value="30">Last 30 days</option><option value="7">Last 7 days</option></select>
+      </label>
+      <span class="muted" id="f-note"></span>
+    </div>
+
+    <p id="empty" class="muted" hidden>No finished games match these filters yet.</p>
+
+    <div id="content">
+      <section class="tiles" id="tiles"></section>
+
+      <div class="cards">
+        <section class="card wide" id="quality">
+          <h2>Play quality <span class="muted" style="font-weight:400">(vs. the bot)</span></h2>
+          <p class="muted sub">Each finished game is graded guess by guess. Skill compares each guess with the best available one (free solves count as 100%); the bot plays the same answers.</p>
+          <div class="q-head">
+            <span id="q-coverage" class="muted"></span>
+            <button id="q-run" class="primary" hidden></button>
+            <progress id="q-progress" max="1" value="0" hidden></progress>
+          </div>
+          <div class="tiles q-tiles" id="q-tiles"></div>
+          <h3 class="q-h3" id="q-chart-title" hidden>Average skill by guess number</h3>
+          <div id="c-skill" class="chart"></div>
+        </section>
+
+        <section class="card">
+          <h2>Guess distribution</h2>
+          <p class="muted sub">Finished games by number of guesses; X = lost.</p>
+          <div id="c-dist" class="chart"></div>
+        </section>
+
+        <section class="card">
+          <h2>Guesses per game</h2>
+          <p class="muted sub">Each dot is a game, oldest on the left. Losses sit on the X row. The thin line is the 10-game average. Click a game to replay it.</p>
+          <div id="c-trend" class="chart"></div>
+        </section>
+
+        <section class="card wide">
+          <h2>Opening words</h2>
+          <p class="muted sub">Green / yellow tiles per board: what the first guess revealed on average.</p>
+          <div class="table-wrap"><table id="t-openers">
+            <thead><tr><th>Opener</th><th class="num">Games</th><th class="num">Win rate</th><th class="num">Avg guesses (wins)</th><th class="num">Greens / board</th><th class="num">Yellows / board</th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </section>
+
+        <section class="card">
+          <h2>Boards</h2>
+          <div class="seg" role="tablist" id="board-metric">
+            <button data-m="last" class="on">Solved last</button>
+            <button data-m="avg">Avg solve guess</button>
+            <button data-m="unsolved">Left unsolved</button>
+          </div>
+          <p class="muted sub" id="board-note"></p>
+          <div id="c-boards"></div>
+        </section>
+
+        <section class="card">
+          <h2>Thinking time per guess</h2>
+          <p class="muted sub">Median seconds before each guess, from timed guesses only. Guess 1 counts from when the game was opened.</p>
+          <div id="c-think" class="chart"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="../lib/stats.js"></script>
+  <script src="../lib/engine.js"></script>
+  <script src="engine-client.js"></script>
+  <script src="charts.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

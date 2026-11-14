@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Games</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="games.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html" aria-current="page">Game log</a><a href="replay.html">Replay</a><a href="setup.html" class="web-only">Setup</a></nav>
+  </header>
+  <header>
+    <div class="muted" id="summary">Loading…</div>
+    <div class="actions">
+      <button id="export-json" class="primary">Export JSON</button>
+      <button id="export-csv">Export CSV (games)</button>
+      <button id="export-guesses">Export CSV (guesses)</button>
+      <label class="button" for="import-file">Import JSON</label>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div id="notice" hidden></div>
+
+  <main>
+    <div class="filters">
+      <label>Mode
+        <select id="f-mode">
+          <option value="">All</option><option value="daily">Daily</option><option value="free">Free play</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="f-abandoned"> Show abandoned</label>
+    </div>
+    <table id="games">
+      <thead>
+        <tr><th>Game</th><th>Date</th><th>Result</th><th>Guesses</th><th>Boards</th><th>Time</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p id="empty" class="muted" hidden>No games recorded yet. Play on <a href="https://sedecordle.com/" target="_blank" rel="noopener">sedecordle.com</a> and they will appear here.</p>
+  </main>
+
+  <footer>
+    <button id="delete-all" class="danger">Delete all games…</button>
+  </footer>
+
+  <script src="../lib/words.js"></script>
+  <script src="../lib/sedecordle.js"></script>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="../lib/export.js"></script>
+  <script src="games.js"></script>
+</body>
+</html>

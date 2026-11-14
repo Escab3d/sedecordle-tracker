@@ -1,0 +1,66 @@
+.dash { max-width: 1100px; margin: 0 auto; padding: 16px 20px 40px; }
+.filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 16px; color: var(--muted); }
+.filters select { font: inherit; margin-left: 4px; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
+.tile .s { font-size: 12px; color: var(--muted); }
+
+.q-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
+.q-head progress { width: 200px; accent-color: var(--series-1); }
+.q-tiles { margin-bottom: 8px; }
+.q-tiles .tile { background: var(--bg); }
+.q-h3 { font-size: 13px; margin: 8px 0 4px; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.card .sub { margin: -4px 0 10px; font-size: 12px; }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } .dash { padding: 12px 16px 32px; } }
+
+.chart svg { display: block; max-width: 100%; height: auto; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .baseline { stroke: var(--muted); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .value { fill: var(--text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .bar { fill: var(--series-1); }
+.chart .bar.critical { fill: var(--status-critical); }
+.chart .line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; }
+.chart .line.rolling { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: none; opacity: .8; }
+.chart .dot { fill: var(--series-1); stroke: var(--panel); stroke-width: 2; }
+.chart .dot.critical { fill: var(--status-critical); }
+.chart .crosshair { stroke: var(--muted); stroke-width: 1; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart .hit.clickable { cursor: pointer; }
+
+.chart-tip {
+  position: fixed; z-index: 10; pointer-events: none; max-width: 260px;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 9px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.18);
+}
+.chart-tip-title { font-weight: 600; margin-bottom: 2px; }
+
+.table-wrap { overflow-x: auto; }
+#t-openers { width: 100%; border-collapse: collapse; }
+#t-openers th, #t-openers td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+#t-openers th { font-size: 12px; color: var(--muted); font-weight: 600; }
+#t-openers .num { text-align: right; font-variant-numeric: tabular-nums; }
+#t-openers td:first-child { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+.seg button { border: 0; border-radius: 0; padding: 4px 10px; font-size: 12px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--series-1); color: #fff; }
+
+.board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; max-width: 420px; }
+.board-cell { aspect-ratio: 1.6; border-radius: 4px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: default; }
+.board-n { font-size: 11px; opacity: .75; }
+.board-v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.seq-0 { background: var(--bg); color: var(--muted); }
+.seq-1 { background: var(--seq-1); color: var(--seq-ink-lo); }
+.seq-2 { background: var(--seq-2); color: var(--seq-ink-lo); }
+.seq-3 { background: var(--seq-3); color: var(--seq-ink-lo); }
+.seq-4 { background: var(--seq-4); color: var(--seq-ink-hi); }
+.seq-5 { background: var(--seq-5); color: var(--seq-ink-hi); }
+.seq-6 { background: var(--seq-6); color: var(--seq-ink-hi); }

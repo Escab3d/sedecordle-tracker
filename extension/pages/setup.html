@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sedecordle Tracker — Setup</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+    .card h2 { margin: 0 0 6px; }
+    ol { padding-left: 22px; margin: 8px 0; }
+    li { margin: 6px 0; }
+    textarea { width: 100%; min-height: 84px; font: 12px/1.4 ui-monospace, Consolas, monospace; background: var(--bg); color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+    .bm { display: inline-block; padding: 6px 12px; border-radius: 6px; border: 1px dashed var(--series-1); text-decoration: none; }
+    code { font: 13px ui-monospace, Consolas, monospace; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    .seg button { border: 0; border-radius: 0; padding: 4px 10px; font-size: 13px; }
+    .seg button + button { border-left: 1px solid var(--line); }
+    .seg button.on { background: var(--series-1); color: #fff; }
+    .ok { color: var(--green); } .bad { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sedecordle Tracker</h1>
+    <nav><a href="dashboard.html">Dashboard</a><a href="games.html">Game log</a><a href="replay.html">Replay</a><a href="setup.html" class="web-only" aria-current="page">Setup</a></nav>
+  </header>
+  <main class="wrap">
+    <section class="card ext-only">
+      <h2>You're in the extension</h2>
+      <p>The extension records games by itself. This page sets up the bookmark used by the <b>web app</b> (for browsers without extensions, such as Chrome on Android).</p>
+    </section>
+
+    <section class="card">
+      <h2>1. Check that bookmarklets work</h2>
+      <p>Bookmark this test the same way as in step 2, open any page, and run it. You should see a message.</p>
+      <textarea readonly id="test-code">javascript:alert('Bookmarklets work here: '+location.hostname)</textarea>
+      <div class="row"><button data-copy="test-code">Copy test code</button></div>
+    </section>
+
+    <section class="card">
+      <h2>2. Add the tracker bookmark</h2>
+      <div class="row">
+        <span class="muted">Version:</span>
+        <div class="seg" id="variant">
+          <button data-v="loader" class="on">Standard</button>
+          <button data-v="inline">Self-contained</button>
+        </div>
+      </div>
+      <p class="muted" id="variant-note"></p>
+      <textarea readonly id="bm-code"></textarea>
+      <div class="row">
+        <button class="primary" data-copy="bm-code">Copy bookmark code</button>
+        <a class="bm" id="bm-link" href="#">Sedecordle Tracker</a>
+        <span class="muted">← on a computer, drag this to the bookmarks bar</span>
+      </div>
+
+      <h3>Android Chrome</h3>
+      <ol>
+        <li>Tap <b>Copy bookmark code</b>.</li>
+        <li>Bookmark this page: <b>⋮ → ☆</b>.</li>
+        <li>Open <b>⋮ → Bookmarks</b>, find the new bookmark, choose <b>Edit</b>.</li>
+        <li>Name it <code>sedtrack</code>, and replace the URL with the copied code.</li>
+        <li>On sedecordle.com, tap the address bar, type <code>sedtrack</code>, and tap the bookmark suggestion (the one with the star icon, not a search).</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>3. Using it</h2>
+      <ul>
+        <li><b>After a game:</b> run the bookmark and tap <b>Save to tracker</b>. The game opens here and is saved on this device.</li>
+        <li><b>For guess timings:</b> also run it once <i>before</i> your first guess. Every guess after that gets a time, until the tab is reloaded.</li>
+        <li>The site keeps today's daily until tomorrow, and the current free game until you start a new one. Save before then.</li>
+        <li>Saving the same game twice is safe: it's merged, and timings are kept.</li>
+      </ul>
+    </section>
+
+    <section class="card web-only">
+      <h2>4. This device</h2>
+      <p id="persist" class="muted">Checking storage…</p>
+      <p class="muted">To install: open the browser menu → <b>Add to Home screen</b> / <b>Install app</b>. Games are stored only in this browser on this device. Use <b>Game log → Export JSON</b> for backups or to move them to the desktop extension (<b>Import JSON</b> there).</p>
+    </section>
+  </main>
+  <script src="../lib/store.js"></script>
+  <script src="env.js"></script>
+  <script src="setup.js"></script>
+</body>
+</html>
